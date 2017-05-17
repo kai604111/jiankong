@@ -227,30 +227,6 @@ function checkWeb(opt, ser) {
     });
 }
 
-var isHeartSend = true; //isRecoverSend 判断是否发送过恢复邮件 避免重复发送
-//心跳监测 5分钟内没有发出请求就监督者就认为监控服务挂了
-function heartbeat() {
-    this.accessUrl = "http://115.231.111.183/hubei_jiankong_heartbeat";
-    http.get(this.accessUrl, function (res) {
-        console.log('监控心跳 get response Code :' + res.statusCode);
-        isHeartSend = true;
-    }).on('error', function (e) {
-        console.log("accessUrl : " + this.accessUrl);
-        console.log("error :" + e.message);
-        if (isHeartSend) {
-            var erroroption_text = erroroption.text;
-            erroroption.text = "监控服务的监督者挂了，请及时修复监督服务！";
-            mail.sendMail(erroroption, function (error, info) {
-                console.log('mail_error: ' + error);
-                var date = new Date();
-                console.log(date + '->'+ '监控服务的监督者挂了');
-                isHeartSend = false;
-            });
-            erroroption.text = erroroption_text;
-        }
-    });
-}
-
 setInterval(function () {
     var date = new Date();
     console.log('----------------------------------------------------------------------');
@@ -259,5 +235,4 @@ setInterval(function () {
     checkWeb(webServer, "sport");
     checkWeb(webServer, "labei");
     checkServer();
-    heartbeat();
 }, 60 * 1000);//检测频率 60S一次
