@@ -27,17 +27,18 @@ var serverErrorFlag = {
     }
 };
 // 邮件发送配置
-// var mails = {
-//     form: 'server<joyuservermail@163.com>',
-//     to: ' liwenyang@joyutech.com',
+ var mails = {
+     form: 'liwenyang@joyutech.com',
+     to: 'liwenyang@joyutech.com',
 //     cc: 'yuanfanglin@joyutech.com,yangzheng@joyutech.com,chenhongyu@joyutech.com,lengweiping@joyutech.com,guoziao@joyutech.com'
-// };
+     cc: ''
+ };
 // 邮件发送配置
-var mails = {
-    form: '604111884@qq.com',
-    to: '604111884@qq.com',
-    cc: 'wangzhenkai@joyutech.com,604111884@qq.com'
-};
+//var mails = {
+//    form: '604111884@qq.com',
+//    to: '604111884@qq.com',
+//    cc: 'wangzhenkai@joyutech.com,604111884@qq.com'
+//};
 //邮件配置：from发送方，to接收方，cc配置邮件抄送对象。subject邮件主题，text邮件的内容。
 var erroroption = {
     from: mails.form,
@@ -55,19 +56,20 @@ var restartoption = {
 };
 //配置邮件的服务商与协议
 var mail = nodemailer.createTransport({
-    host: "smtp.qq.com",
+    host: "smtp.exmail.qq.com",
     server: 'qq',
     port: 465,//配置SMTP端口
     secureConnection: true, //SSL加密通道，防止邮件被截获
     //auth设置使用SMTP协议的邮箱以及授权码
     auth: {
-        user: '',
-        pass: ''
+        user: 'liwenyang@joyutech.com',
+        pass: 'Joyu1201'
     }
 });
 var restart = true;//判断程序是否已启动
 var isVPN = 0;//由于VPN连接可能会出现断了重连现象，导致误发邮件。所以请求5次都请求不到的话，才判断为工程出错或者VPN断了不连了。
 var mailErrorFlag = false; // 只有服务器参数超出范围时才需要发送邮件；
+var monitJSONFlag = true; // 服务器状态文件访问失败时发送邮件
 var oneHour = true; // 发生错误时，一小时发送一次邮件
 // 根据请求文件内容判断是否发送邮件
 function checkServer() {
@@ -80,6 +82,7 @@ function checkServer() {
             });
             res.on('end', function () {
                 //获取到的数据
+                monitJSONFlag = true;
                 json = JSON.parse(json);
                 console.log(json);
                 var revover = function (ipDesc,type) {
@@ -87,8 +90,9 @@ function checkServer() {
                     if (!serverErrorFlag[ipDesc][type]) {
                         restartoption.text = type + ":状态已恢复";
                         mail.sendMail(restartoption, function (error, info) {
+                            console.log('mail_error: ' + error);
                             var date = new Date();
-                            console.log(date + '状态已恢复 ');
+                            console.log(date + ipDesc + '状态已恢复 ');
                             serverErrorFlag[ipDesc][type] = true;
                             oneHour = true;
                         });
@@ -135,11 +139,11 @@ function checkServer() {
                 judeJSON("hubei_173", json["hubei_173"], erroroption);
 
                 var erroroption_text = erroroption.text;
-                console.log(sendStr);
-                if (sendStr != "" && sendStr.length != 0 && mailErrorFlag && oneHour) {
-                    console.log("sendServerMail");
+                if (sendStr != "" && sendStr.length > 36 && mailErrorFlag && oneHour) {
+                    console.log(sendStr);
                     erroroption.text = sendStr;
                     mail.sendMail(erroroption, function (error, info) {
+						console.log('mail_error: ' + error);
                         var date = new Date();
                         console.log(date + '服务器状态出现问题');
                         oneHour = false;
@@ -151,20 +155,28 @@ function checkServer() {
         if (res.statusCode == 404) {
             var erroroption_text = erroroption.text;
             erroroption.text = "服务器状态文件访问失败，请检查文件。";
-            mail.sendMail(erroroption, function (error, info) {
-                var date = new Date();
-                console.log(date + '服务器挂掉了');
-            });
+            if (monitJSONFlag) {
+                mail.sendMail(erroroption, function (error, info) {
+                    console.log('mail_error: ' + error);
+                    var date = new Date();
+                    console.log(date + '服务器状态文件访问失败，请检查文件。');
+                    monitJSONFlag = false;
+                });
+            }
             erroroption.text = erroroption_text;
         }
     }).on('error', function (e) {
         console.log("Got error1 :" + e.message);
         var erroroption_text = erroroption.text;
         erroroption.text = "服务器状态文件访问失败，请检查文件。";
-        mail.sendMail(erroroption, function (error, info) {
-            var date = new Date();
-            console.log(date + '服务器挂掉了');
-        });
+        if (monitJSONFlag) {
+            mail.sendMail(erroroption, function (error, info) {
+                console.log('mail_error: ' + error);
+                var date = new Date();
+                console.log(date + '服务器状态文件访问失败，请检查文件。');
+                monitJSONFlag = false;
+            });
+        }
         erroroption.text = erroroption_text;
     });
 }
@@ -175,6 +187,7 @@ function checkWeb(accessUrl) {
         isVPN = 0;
         if (!restart) {
             mail.sendMail(restartoption, function (error, info) {
+                console.log('mail_error: ' + error);
                 var date = new Date();
                 console.log(date + '工程已恢复 ');
                 restart = true;
@@ -187,6 +200,7 @@ function checkWeb(accessUrl) {
         }
         if (restart && e.message != 'read ECONNRESET' && isVPN == 5) {
             mail.sendMail(erroroption, function (error, info) {
+                console.log('mail_error: ' + error);
                 var date = new Date();
                 console.log(date + '工程挂掉了');
                 restart = false;
@@ -196,8 +210,8 @@ function checkWeb(accessUrl) {
 }
 
 setInterval(function () {
-    console.log("start setInterval");
+    console.log("start heartbeat");
     checkServer();
     checkWeb(checkWebStaticfile1);
     checkWeb(checkWebStaticfile2);
-}, 5 * 1000);//检测频率 60S一次
+}, 10 * 1000);//检测频率 60S一次
