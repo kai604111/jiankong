@@ -74,7 +74,7 @@ var oneHour = true; // 发生错误时，一小时发送一次邮件
 // 根据请求文件内容判断是否发送邮件
 function checkServer() {
     http.get(checkServerJSONfile, function (res) {
-        console.log('get response Code :' + res.statusCode);
+        console.log('server file get response Code :' + res.statusCode);
         if (res.statusCode == 200) {
             var json = '';
             res.on('data', function (d) {
@@ -102,7 +102,6 @@ function checkServer() {
                 };
                 var sendStr = "";
                 var judeJSON = function (ip, json, erroroption) {
-                    // console.log(json);
                     var str = {};
                     str['ip'] = ip;
                     if (json['disk'] > warnFlag['disk']) {
@@ -166,7 +165,7 @@ function checkServer() {
             erroroption.text = erroroption_text;
         }
     }).on('error', function (e) {
-        console.log("Got error1 :" + e.message);
+        console.log("server error :" + e.message);
         var erroroption_text = erroroption.text;
         erroroption.text = "服务器状态文件访问失败，请检查文件。";
         if (monitJSONFlag) {
@@ -183,7 +182,7 @@ function checkServer() {
 // 请求web项目中的静态文件判断项目是不是在服务
 function checkWeb(accessUrl) {
     http.get(accessUrl, function (res) {
-        //console.log('get response Code :' + res.statusCode);
+        console.log('web file get response Code :' + res.statusCode);
         isVPN = 0;
         if (!restart) {
             mail.sendMail(restartoption, function (error, info) {
@@ -194,7 +193,7 @@ function checkWeb(accessUrl) {
             });
         }
     }).on('error', function (e) {
-        console.log("Got error2 :"+e.message);
+        console.log("web error :"+e.message);
         if (e.message != 'read ECONNRESET') {
             isVPN++;
         }
@@ -210,8 +209,10 @@ function checkWeb(accessUrl) {
 }
 
 setInterval(function () {
-    console.log("start heartbeat");
-    checkServer();
+    var date = new Date();
+    console.log('----------------------------------------------------------------------');
+    console.log(date + "start heartbeat");
     checkWeb(checkWebStaticfile1);
     checkWeb(checkWebStaticfile2);
+    checkServer();
 }, 10 * 1000);//检测频率 60S一次
