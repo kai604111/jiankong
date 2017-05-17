@@ -1,0 +1,16 @@
+{
+  "172": {
+    "mem": 90,
+    "disk": 80,
+    "nginx": 0,
+    "mysql_status": 0,
+    "mysql_slave": 2
+  },
+  "173": {
+    "mem": 80,
+    "disk": 80,
+    "nginx": 0,
+    "mysql_status": 0,
+    "mysql_slave": 0
+  }
+}
