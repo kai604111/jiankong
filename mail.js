@@ -1,9 +1,21 @@
 ﻿var http = require('http');
 var nodemailer = require('nodemailer'); //nodemailer模块，用于发送邮件
 var checkServerJSONfile = "http://116.210.254.248/moniter.json"; //请求服务器状态文件，用于服务器是否挂掉
-var checkWebStaticfile1 = "http://116.210.254.227/app/static/js/keyCode.js"; //请求工程的静态文件，用于判断工程是否挂掉
-var checkWebStaticfile2 = "http://116.210.254.227/app/static/js/keyCode.js"; //请求工程的静态文件，用于判断工程是否挂掉
-
+//请求工程的静态文件，用于判断工程是否挂掉
+//isVPN由于VPN连接可能会出现断了重连现象，导致误发邮件。所以请求5次都请求不到的话，才判断为工程出错或者VPN断了不连了。
+//restart 判断程序是否已启动
+var webServer = {
+    "sport": {
+        "static_url": "http://116.210.254.227/app/static/js/keyCode.js",
+        "isVPN": 0,
+        "restart": true
+    },
+    "labei": {
+        "static_url": "http://116.210.254.227/app/static/js/keyCode.js",
+        "isVPN": 0,
+        "restart": true
+    }
+};
 //服务器状态阈值
 var warnFlag = {
     "disk": 80,
@@ -27,18 +39,11 @@ var serverErrorFlag = {
     }
 };
 // 邮件发送配置
- var mails = {
-     form: 'liwenyang@joyutech.com',
-     to: 'liwenyang@joyutech.com',
-//     cc: 'yuanfanglin@joyutech.com,yangzheng@joyutech.com,chenhongyu@joyutech.com,lengweiping@joyutech.com,guoziao@joyutech.com'
-     cc: ''
- };
-// 邮件发送配置
-//var mails = {
-//    form: '604111884@qq.com',
-//    to: '604111884@qq.com',
-//    cc: 'wangzhenkai@joyutech.com,604111884@qq.com'
-//};
+var mails = {
+    form: 'liwenyang@joyutech.com',
+    to: 'liwenyang@joyutech.com',
+    cc: 'yuanfanglin@joyutech.com,yangzheng@joyutech.com,chenhongyu@joyutech.com,lengweiping@joyutech.com,guoziao@joyutech.com,wangzhenkai@joyutech.com'
+};
 //邮件配置：from发送方，to接收方，cc配置邮件抄送对象。subject邮件主题，text邮件的内容。
 var erroroption = {
     from: mails.form,
@@ -66,8 +71,7 @@ var mail = nodemailer.createTransport({
         pass: 'Joyu1201'
     }
 });
-var restart = true;//判断程序是否已启动
-var isVPN = 0;//由于VPN连接可能会出现断了重连现象，导致误发邮件。所以请求5次都请求不到的话，才判断为工程出错或者VPN断了不连了。
+
 var mailErrorFlag = false; // 只有服务器参数超出范围时才需要发送邮件；
 var monitJSONFlag = true; // 服务器状态文件访问失败时发送邮件
 var oneHour = true; // 发生错误时，一小时发送一次邮件
@@ -85,10 +89,10 @@ function checkServer() {
                 monitJSONFlag = true;
                 json = JSON.parse(json);
                 console.log(json);
-                var revover = function (ipDesc,type) {
+                var revover = function (ipDesc, type) {
                     var _text = restartoption.text;
                     if (!serverErrorFlag[ipDesc][type]) {
-                        restartoption.text = type + ":状态已恢复";
+                        restartoption.text = ipDesc + '->' + type + ":状态已恢复";
                         mail.sendMail(restartoption, function (error, info) {
                             console.log('mail_error: ' + error);
                             var date = new Date();
@@ -109,28 +113,28 @@ function checkServer() {
                         serverErrorFlag[ip]['disk'] = false;
                         mailErrorFlag = true;
                     } else {
-                        revover(ip,'disk');
+                        revover(ip, 'disk');
                     }
                     if (json['nginx'] != warnFlag['nginx']) {
                         str['nginx'] = "nginx报警！当前nginx状态：" + json['nginx'];
                         serverErrorFlag[ip]['nginx'] = false;
                         mailErrorFlag = true;
                     } else {
-                        revover(ip,'nginx');
+                        revover(ip, 'nginx');
                     }
                     if (json['mysql_status'] != warnFlag['mysql_status']) {
                         str['mysql_status'] = "数据库报警！当前数据库状态：" + json['mysql_status'];
                         serverErrorFlag[ip]['mysql_status'] = false;
                         mailErrorFlag = true;
                     } else {
-                        revover(ip,'mysql_status');
+                        revover(ip, 'mysql_status');
                     }
                     if (json['mysql_slave'] != warnFlag['mysql_slave']) {
                         str['mysql_slave'] = "数据库同步报警！当前数据库同步状态：" + json['mysql_slave'];
                         serverErrorFlag[ip]['mysql_slave'] = false;
                         mailErrorFlag = true;
                     } else {
-                        revover(ip,'mysql_slave');
+                        revover(ip, 'mysql_slave');
                     }
                     sendStr += JSON.stringify(str);
                 };
@@ -142,7 +146,7 @@ function checkServer() {
                     console.log(sendStr);
                     erroroption.text = sendStr;
                     mail.sendMail(erroroption, function (error, info) {
-						console.log('mail_error: ' + error);
+                        console.log('mail_error: ' + error);
                         var date = new Date();
                         console.log(date + '服务器状态出现问题');
                         oneHour = false;
@@ -180,30 +184,37 @@ function checkServer() {
     });
 }
 // 请求web项目中的静态文件判断项目是不是在服务
-function checkWeb(accessUrl) {
-    http.get(accessUrl, function (res) {
+function checkWeb(opt, ser) {
+    this.accessUrl = (opt[ser]['static_url']);
+    http.get(this.accessUrl, function (res) {
         console.log('web file get response Code :' + res.statusCode);
-        isVPN = 0;
-        if (!restart) {
+        opt[ser]["isVPN"] = 0;
+        if (!opt[ser]["restart"]) {
+            var erroroption_text = erroroption.text;
+            erroroption.text = ser +  '->' + "web项目已恢复。";
             mail.sendMail(restartoption, function (error, info) {
                 console.log('mail_error: ' + error);
                 var date = new Date();
-                console.log(date + '工程已恢复 ');
-                restart = true;
+                console.log(date + ser  + '->'+ '工程已恢复');
+                opt[ser]["restart"] = true;
             });
+            erroroption.text = erroroption_text;
         }
     }).on('error', function (e) {
-        console.log("web error :"+e.message);
+        console.log("web error :" + e.message);
         if (e.message != 'read ECONNRESET') {
-            isVPN++;
+            opt[ser]["isVPN"]+=1;
         }
-        if (restart && e.message != 'read ECONNRESET' && isVPN == 5) {
+        if (opt[ser]["restart"] && e.message != 'read ECONNRESET' && opt[ser]["isVPN"] == 5) {
+            var erroroption_text = erroroption.text;
+            erroroption.text = ser +  '->' + "web项目挂掉了，请检查项目！";
             mail.sendMail(erroroption, function (error, info) {
                 console.log('mail_error: ' + error);
                 var date = new Date();
-                console.log(date + '工程挂掉了');
-                restart = false;
+                console.log(date + ser  + '->'+ '工程挂掉了');
+                opt[ser]["restart"] = false;
             });
+            erroroption.text = erroroption_text;
         }
     });
 }
@@ -211,8 +222,9 @@ function checkWeb(accessUrl) {
 setInterval(function () {
     var date = new Date();
     console.log('----------------------------------------------------------------------');
-    console.log(date + "start heartbeat");
-    checkWeb(checkWebStaticfile1);
-    checkWeb(checkWebStaticfile2);
+    console.log(date + "");
+    console.log("start heartbeat");
+    checkWeb(webServer, "sport");
+    checkWeb(webServer, "labei");
     checkServer();
-}, 10 * 1000);//检测频率 60S一次
+}, 60 * 1000);//检测频率 60S一次
