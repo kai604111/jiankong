@@ -1,4 +1,12 @@
-﻿var http = require('http');
+﻿/**
+ * mail监控服务
+ * 1. 对生成的服务器状态文件进行分析判断发出警告邮件
+ * 2. 对web项目的静态资源进行访问，判断服务状态发出警告邮件
+ * ps：
+ *     对web项目不要请求图片、css。如果被nginx代理会导致判断不准确
+ *     修复bug： 邮件不要频繁发送，易被邮件服务器拉黑导致功能失效
+ */
+var http = require('http');
 var nodemailer = require('nodemailer'); //nodemailer模块，用于发送邮件
 var checkServerJSONfile = "http://116.210.254.248/moniter.json"; //请求服务器状态文件，用于服务器是否挂掉
 //请求工程的静态文件，用于判断工程是否挂掉
@@ -219,6 +227,30 @@ function checkWeb(opt, ser) {
     });
 }
 
+var isHeartSend = true; //isRecoverSend 判断是否发送过恢复邮件 避免重复发送
+//心跳监测 5分钟内没有发出请求就监督者就认为监控服务挂了
+function heartbeat() {
+    this.accessUrl = "http://115.231.111.183/hubei_jiankong_heartbeat";
+    http.get(this.accessUrl, function (res) {
+        console.log('监控心跳 get response Code :' + res.statusCode);
+        isHeartSend = true;
+    }).on('error', function (e) {
+        console.log("accessUrl : " + this.accessUrl);
+        console.log("error :" + e.message);
+        if (isHeartSend) {
+            var erroroption_text = erroroption.text;
+            erroroption.text = "监控服务的监督者挂了，请及时修复监督服务！";
+            mail.sendMail(erroroption, function (error, info) {
+                console.log('mail_error: ' + error);
+                var date = new Date();
+                console.log(date + '->'+ '监控服务的监督者挂了');
+                isHeartSend = false;
+            });
+            erroroption.text = erroroption_text;
+        }
+    });
+}
+
 setInterval(function () {
     var date = new Date();
     console.log('----------------------------------------------------------------------');
@@ -227,4 +259,5 @@ setInterval(function () {
     checkWeb(webServer, "sport");
     checkWeb(webServer, "labei");
     checkServer();
+    heartbeat();
 }, 60 * 1000);//检测频率 60S一次
