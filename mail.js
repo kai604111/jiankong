@@ -57,14 +57,14 @@ var erroroption = {
     from: mails.form,
     to: mails.to,
     cc: mails.cc,
-    subject: "工程出错",
+    subject: "湖北监控出错",
     text: "服务器挂掉了，请尽快处理。"
 };
 var restartoption = {
     from: mails.form,
     to: mails.to,
     cc: mails.cc,
-    subject: "工程恢复",
+    subject: "湖北监控恢复",
     text: "服务器已恢复。"
 };
 //配置邮件的服务商与协议
@@ -76,7 +76,7 @@ var mail = nodemailer.createTransport({
     //auth设置使用SMTP协议的邮箱以及授权码
     auth: {
         user: 'liwenyang@joyutech.com',
-        pass: ''
+        pass: 'Joyu1201'
     }
 });
 
@@ -227,26 +227,46 @@ function checkWeb(opt, ser) {
     });
 }
 
-var isHeartSend = true; //isRecoverSend 判断是否发送过恢复邮件 避免重复发送
+var isErrorMailSended = false; //isRecoverSend 判断是否发送过恢复邮件 避免重复发送
+var heartErrorCount = 0;
 //心跳监测 5分钟内没有发出请求就监督者就认为监控服务挂了
 function heartbeat() {
     this.accessUrl = "http://115.231.111.183/hubei_jiankong_heartbeat";
     http.get(this.accessUrl, function (res) {
         console.log('监控心跳 get response Code :' + res.statusCode);
-        isHeartSend = true;
-    }).on('error', function (e) {
-        console.log("accessUrl : " + this.accessUrl);
-        console.log("error :" + e.message);
-        if (isHeartSend) {
-            var erroroption_text = erroroption.text;
-            erroroption.text = "监控服务的监督者挂了，请及时修复监督服务！";
+		heartErrorCount = 0 ;
+		if(isErrorMailSended) {
+			var erroroption_text = erroroption.text;
+            var erroroption_sub = erroroption.subject;
+            erroroption.text = "监控服务的监督者已修复，服务正常！";
+            erroroption.subject = "湖北监控";
             mail.sendMail(erroroption, function (error, info) {
                 console.log('mail_error: ' + error);
                 var date = new Date();
                 console.log(date + '->'+ '监控服务的监督者挂了');
-                isHeartSend = false;
+                isErrorMailSended = false;
             });
             erroroption.text = erroroption_text;
+            erroroption.subject = erroroption_sub;
+		}
+    }).on('error', function (e) {
+		heartErrorCount++;
+        console.log("accessUrl : " + this.accessUrl);
+        console.log("error :" + e.message);
+        if ( !isErrorMailSended && heartErrorCount>3) {
+            var erroroption_text = erroroption.text;
+            var erroroption_sub = erroroption.subject;
+            erroroption.text = "监控服务的监督者挂了，请及时修复监督服务！";
+            erroroption.subject = "湖北监控";
+            mail.sendMail(erroroption, function (error, info) {
+                console.log('mail_error: ' + error);
+                var date = new Date();
+                console.log(date + '->'+ '监控服务的监督者挂了');
+				isErrorMailSended = true;
+            });
+            erroroption.text = erroroption_text;
+            erroroption.subject = erroroption_sub;
+			heartErrorCount = 0;
         }
     });
 }
