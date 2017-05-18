@@ -36,7 +36,7 @@ var mail = nodemailer.createTransport({
     //auth设置使用SMTP协议的邮箱以及授权码
     auth: {
         user: 'liwenyang@joyutech.com',
-        pass: 'Joyu1201'
+        pass: ''
     }
 });
 var server = http.createServer(function (req, res) {
@@ -51,6 +51,7 @@ var server = http.createServer(function (req, res) {
             var date = new Date();
             console.log(date + '湖北监控服务异常已恢复');
             restart = true;
+            isErrorSend = true;
             isRecoverSend = true;
         });
     }

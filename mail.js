@@ -76,7 +76,7 @@ var mail = nodemailer.createTransport({
     //auth设置使用SMTP协议的邮箱以及授权码
     auth: {
         user: 'liwenyang@joyutech.com',
-        pass: 'Joyu1201'
+        pass: ''
     }
 });
 
