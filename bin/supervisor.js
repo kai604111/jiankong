@@ -17,14 +17,14 @@ var erroroption = {
     from: mails.form,
     to: mails.to,
     cc: mails.cc,
-    subject: "湖北监控服务异常",
+    subject: "监督服务",
     text: "湖北监控服务异常，请及时修复！"
 };
 var restartoption = {
     from: mails.form,
     to: mails.to,
     cc: mails.cc,
-    subject: "湖北监控服务已恢复",
+    subject: "监督服务",
     text: "湖北监控服务已恢复。"
 };
 //配置邮件的服务商与协议
@@ -36,7 +36,7 @@ var mail = nodemailer.createTransport({
     //auth设置使用SMTP协议的邮箱以及授权码
     auth: {
         user: 'liwenyang@joyutech.com',
-        pass: ''
+        pass: 'Joyu1201'
     }
 });
 var server = http.createServer(function (req, res) {
