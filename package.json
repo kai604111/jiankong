@@ -1,10 +1,10 @@
 {
   "name": "jiankong",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "monit web and server",
   "main": "app.js",
   "bin": {
-    "jiankong": "mail.js"
+    "jiankong": "app.js"
   },
   "dependencies": {
     "fs": "0.0.1-security",
