@@ -66,10 +66,10 @@ var revover = function (ipDesc, type) {
     }
     monitor["serverErrorFlag"][ipDesc][type] = true;
 };
-
 monitor.mailErrorFlag = false; // 只有服务器参数超出范围时才需要发送邮件；
 monitor.monitJSONFlag = true; // 服务器状态文件访问失败时发送邮件
 monitor.oneHour = true; // 发生错误时，一小时发送一次邮件
+monitor.getErrorCount = 0;
 // 根据请求文件内容判断是否发送邮件
 monitor.checkServer = function () {
     if (conf.statusFile.length == 0) {
@@ -79,6 +79,7 @@ monitor.checkServer = function () {
     http.get(conf.statusFile, function (res) {
         log.writeInfo('server file get response Code :' + res.statusCode);
         if (res.statusCode == 200) {
+            monitor.getErrorCount = 0;
             var json = '';
             res.on('data', function (d) {
                 json += d;
@@ -90,20 +91,23 @@ monitor.checkServer = function () {
                 var str_172 = judeJSON("hubei_172", json["hubei_172"]);
                 var str_173 = judeJSON("hubei_173", json["hubei_173"]);
                 var sendStr = str_172 + str_173;
-                if (sendStr != "" && sendStr.length > 36 && mailErrorFlag && oneHour) {
+                if (sendStr != "" && sendStr.length > 36 && monitor.mailErrorFlag && monitor.oneHour) {
                     mail.send('监控服务', '服务器状态出现问题', 'monitor');
                     monitor.oneHour = false;
                 }
             });
-        } else if (res.statusCode == 404) {
+        } else if (res.statusCode == 404 && monitor.getErrorCount > 3) {
+            monitor.getErrorCount++;
+            log.writeErr("请求文件失败 : 404");
             if (monitor.monitJSONFlag) {
                 mail.send('监控服务', '服务器状态文件访问失败，请检查文件。', 'monitor');
                 monitor.monitJSONFlag = false;
             }
         }
     }).on('error', function (e) {
-        log.writeErr("请求文件失败", e);
-        if (monitor.monitJSONFlag) {
+        monitor.getErrorCount++;
+        log.writeErr("请求文件失败", e.toString());
+        if (monitor.monitJSONFlag && monitor.getErrorCount > 3) {
             mail.send('监控服务', '服务器状态文件访问失败，请检查文件。', 'monitor');
             monitor.monitJSONFlag = false;
         }
@@ -121,8 +125,7 @@ monitor.checkWeb = function(opt, ser) {
             opt[ser]["restart"] = true;
         }
     }).on('error', function (e) {
-        console.log();
-        log.writeErr("web error",e);
+        log.writeErr("web error",e.toString());
         if (e.message != 'read ECONNRESET') {
             opt[ser]["isVPN"] += 1;
         }

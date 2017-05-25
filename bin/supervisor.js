@@ -9,22 +9,25 @@ supervisor.restart = true; //restart 判断程序是否已启动
 supervisor.isErrorSend = true; //isErrorSend 判断是否发送过故障邮件 避免重复发送
 supervisor.isRecoverSend = true; //isRecoverSend 判断是否发送过恢复邮件 避免重复发送
 
-var server = http.createServer(function (req, res) {
-    log.writeInfo('URL:' + req.url);
-    res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end('我还活着\n');
-    supervisor.lastNotifyTime = new Date().getTime();
-    log.writeInfo("lastNotifyTime : " + new Date(supervisor.lastNotifyTime));
-    if (!supervisor.restart && supervisor.isRecoverSend) {
-        mail.send('监督服务', '湖北监控服务异常已恢复', 'supervisor');
-        supervisor.restart = true;
-        supervisor.isErrorSend = true;
-        supervisor.isRecoverSend = true;
-    }
-});
-server.listen(conf.port, function () {
-    console.log('Server running at http://127.0.0.1:30000/');
-});
+if (conf.create_server) {
+    var server = http.createServer(function (req, res) {
+        log.writeInfo('URL:' + req.url);
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end('我还活着\n');
+        supervisor.lastNotifyTime = new Date().getTime();
+        log.writeInfo("lastNotifyTime : " + new Date(supervisor.lastNotifyTime));
+        if (!supervisor.restart && supervisor.isRecoverSend) {
+            mail.send('监督服务', '湖北监控服务异常已恢复', 'supervisor');
+            supervisor.restart = true;
+            supervisor.isErrorSend = true;
+            supervisor.isRecoverSend = true;
+        }
+    });
+    server.listen(conf.port, function () {
+        console.log('Server running at http://127.0.0.1:30000/');
+    });
+}
+
 supervisor.check = function () {
     var currentTime = new Date().getTime();
     if (currentTime - supervisor.lastNotifyTime > 5 * 60 * 1000) {

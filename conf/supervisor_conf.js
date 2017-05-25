@@ -1,6 +1,7 @@
 exports.config = {
     port:'30000',
-    isStop:false,
+    isStop:true,
+    create_server:true,
     check_time: 5
 };
 
